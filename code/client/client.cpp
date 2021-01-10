@@ -54,7 +54,7 @@ namespace cli
         buffer[KEY_SIZE >> 2] = '\0';
 
         send_buffer(public_key, KEY_SIZE >> 2);
-        ENC_init(&enc, public_key, ENC_EXP);
+        ENC_init(&enc, buffer, ENC_EXP);
 
         free(public_key);
 
@@ -62,9 +62,130 @@ namespace cli
         return EXIT_SUCCESS;
     }
 
+    int client::login(const char *username, const char *password)
+    {
+        char *local_buffer = (char*) alloca(256);
+        const size_t len = strlen(username);
+
+        strcpy(local_buffer, username);
+        local_buffer[len] = '\n';
+        local_buffer[len + 1] = '\0';
+        strcat(local_buffer, password);
+
+        send_encrypted(local_buffer, 256);
+        return recv_status();
+    }
+
+    int client::send_encrypted(void *buffer2send, uint64_t buffer_size)
+    {
+        uint64_t counter = 0;
+        char *local_buffer = buffer;
+        uint64_t packages = 
+            (buffer_size >> UNENCRYPTED_PACKAGE_POWER) + 
+            ((buffer_size & UNENCRYPTED_PACKAGE_BITS) > 0);
+        uint64_t times = packages >> 1;
+        send_buffer(&buffer_size, sizeof(uint64_t));
+
+        for (uint64_t i = 0; i < times; i++)
+        {
+            ENC_encrypt(
+                &enc,
+                (char*)buffer + (counter++ << UNENCRYPTED_PACKAGE_POWER),
+                UNENCRYPTED_PACKAGE_SIZE,
+                local_buffer,
+                0
+            );
+            ENC_encrypt(
+                &enc,
+                (char*)buffer + (counter++ << UNENCRYPTED_PACKAGE_POWER),
+                UNENCRYPTED_PACKAGE_SIZE,
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE 
+            );
+
+            send_buffer(
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE << 1
+            );
+        }
+
+        if ((packages & 0b1) > 0)
+        {
+            ENC_encrypt(
+                &enc,
+                (char*)buffer2send + (counter++ << UNENCRYPTED_PACKAGE_POWER),
+                UNENCRYPTED_PACKAGE_SIZE,
+                local_buffer,
+                0
+            );
+
+            send_buffer(
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE
+            );
+        }
+
+        return EXIT_SUCCESS;
+    }
+
+    package_data_t client::recv_encrypyted()
+    {
+        char *buffer2download;
+        char *local_buffer = buffer;
+        uint64_t size, packages, times, counter = 0;
+
+        recv_buffer(&size, sizeof(uint64_t));
+
+        packages = 
+            (size >> UNENCRYPTED_PACKAGE_POWER) +
+            ((size & UNENCRYPTED_PACKAGE_BITS) > 0);
+
+        times = packages >> 1;
+        buffer2download = (char *) malloc(packages << UNENCRYPTED_PACKAGE_POWER);
+        printf("%d\n", packages);
+
+        for (uint64_t i = 0; i < times; i++)
+        {
+            recv_buffer(local_buffer, ENCRYPTED_PACKAGE_SIZE << 1);
+
+            DEC_decrypt(
+                &dec,
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE,
+                buffer2download + (counter++ << UNENCRYPTED_PACKAGE_POWER), 
+                0
+            );
+
+            DEC_decrypt(
+                &dec,
+                local_buffer + ENCRYPTED_PACKAGE_SIZE,
+                ENCRYPTED_PACKAGE_SIZE,
+                buffer2download + (counter++ << UNENCRYPTED_PACKAGE_POWER),
+                UNENCRYPTED_PACKAGE_SIZE
+            );
+        }
+
+        if ((packages & 0b1) > 0)
+        {
+            recv_buffer(
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE
+            );
+
+             DEC_decrypt(
+                &dec,
+                local_buffer,
+                ENCRYPTED_PACKAGE_SIZE,
+                buffer2download + (counter++ << UNENCRYPTED_PACKAGE_POWER), 
+                0
+            );
+        }
+        return {buffer2download, size};
+    }
+
     client::client(const char *ip_addr, uint16_t port_addr)
     :   port(port_addr)
-    {
+    {   
         strcpy(ip, ip_addr);
     }
 

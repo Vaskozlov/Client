@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <iostream>
+#include <stdarg.h>
 
 #include "support/archive.h"
 #include "encryption/encryption.h"
@@ -50,6 +51,7 @@ struct client
     uint16_t port;
 
     int socket;
+    int maximum_calls;
 
     decryptor_t dec;
     encryptor_t enc;
@@ -79,9 +81,9 @@ public:
         return status;
     }
 
-    inline void send_buffer(void *buffer, uint32_t buffer_size)
+    inline void send_buffer(void *buffer2send, uint32_t buffer_size)
     {
-        if (::send(socket, buffer, buffer_size, 0) <= 0)
+        if (::send(socket, buffer2send, buffer_size, 0) <= 0)
         {
             throw std::runtime_error("Unable to send status");
         }
@@ -96,12 +98,16 @@ public:
     }
 
 public:
+    package_data_t recv_encrypyted();
+    int send_encrypted(void *buffer2send, uint64_t buffer_size);
+
+public:
     int connect();
+    int login(const char *username, const char *password);
 
 public:
     ~client();
     client(const char *ip_addr, uint16_t port_addr);
-
 };
 
 }

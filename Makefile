@@ -1,6 +1,6 @@
-CC = gcc
-CXX = g++
-LD = g++
+CC = clang
+CXX = clang++
+LD = clang++
 
 CCFLAGS = -std=c11 -c -O0 -g -isystem code
 CXXFLAGS = -std=c++17 -c -O0 -g -isystem code

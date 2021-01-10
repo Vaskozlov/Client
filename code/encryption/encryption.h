@@ -13,7 +13,7 @@
 typedef struct package_data
 {
     void *buffer;
-    uint32_t size;
+    uint64_t size;
 } __attribute__((packed)) package_data_t;
 
 typedef struct encryptor
