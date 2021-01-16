@@ -1,6 +1,8 @@
 #include "support/archive.h"
 
-static int create_dir(const char *dirname)
+int create_dir(
+    const char *dirname
+)
 {
     if (mkdir(dirname, 0755) < 0)
     {
@@ -13,11 +15,21 @@ static int create_dir(const char *dirname)
     return EXIT_SUCCESS;
 }
 
-static const int is_dir(const char *path)
+int is_dir(
+    const char *path
+)
 {
     struct stat st;
     stat(path, &st);
     return S_ISDIR(st.st_mode);
+}
+
+int exits(
+    const char *path
+)
+{
+    struct stat   st;   
+    return (stat (path, &st) == 0);
 }
 
 int walker(
@@ -93,11 +105,11 @@ int zip(
 
     zip_t *zipper = zip_open(output_filename, ZIP_CREATE | ZIP_EXCL, &error);
 
-    if (zipper == NULL || error == 0)
+    if (zipper == NULL || error != 0)
     {
         zip_error_t ziperror;
         zip_error_init_with_code(&ziperror, error);
-        printf(stderr, "Failed to open output file %s : %s", output_filename, zip_error_strerror(&ziperror));
+        fprintf(stderr, "Failed to open output file %s : %s", output_filename, zip_error_strerror(&ziperror));
         return EXIT_FAILURE;
     }
 
@@ -111,7 +123,7 @@ int zip(
 
         if (source == NULL)
             return EXIT_FAILURE;
-        if (zip_file_add(zipper, path, source, ZIP_FL_ENC_UTF_8) < 0)
+        if (zip_file_add(zipper, strrchr(path, '/') + 1, source, ZIP_FL_ENC_UTF_8) < 0)
             return EXIT_FAILURE;
     }
     
@@ -146,7 +158,7 @@ int unzip(
     {
         zip_error_t ziperror;
         zip_error_init_with_code(&ziperror, error);
-        printf(stderr, "Failed to open output file %s : %s", path2archive, zip_error_strerror(&ziperror));
+        fprintf(stderr, "Failed to open output file %s : %s", path2archive, zip_error_strerror(&ziperror));
         return EXIT_FAILURE;
     }
 

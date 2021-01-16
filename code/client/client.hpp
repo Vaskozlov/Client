@@ -99,11 +99,14 @@ public:
 
 public:
     package_data_t recv_encrypyted();
+    package_data_t download_packages();
+    void send_package(void* buffer, uint32_t size);
     int send_encrypted(void *buffer2send, uint64_t buffer_size);
 
 public:
     int connect();
     int login(const char *username, const char *password);
+    int get_root_access(const char *password);
 
 public:
     ~client();

@@ -66,14 +66,42 @@ namespace cli
     {
         char *local_buffer = (char*) alloca(256);
         const size_t len = strlen(username);
-
+    
         strcpy(local_buffer, username);
         local_buffer[len] = '\n';
         local_buffer[len + 1] = '\0';
         strcat(local_buffer, password);
 
+        send_status(0xFFFE);
         send_encrypted(local_buffer, 256);
         return recv_status();
+    }
+
+    int client::get_root_access(const char *password)
+    {
+        char *local_buffer = (char*) alloca(256);
+        send_status(0xFFFD);
+
+        strcpy(local_buffer, password);
+        send_encrypted(local_buffer, 256);
+        return recv_status();
+    }
+
+    void client::send_package(void* buffer, uint32_t size){
+        uint32_t times, extra;
+		int status;
+        times = size >> 10;
+        extra = size & 1023;
+        
+        send_buffer(&size, sizeof(uint32_t));
+        
+        for (uint32_t i = 0; i < times; i++){
+            send_buffer((char*)buffer + (i << 10), 1024);
+		}
+        
+        if (extra > 0){
+            send_buffer((char*)buffer + size - extra, extra);
+		}
     }
 
     int client::send_encrypted(void *buffer2send, uint64_t buffer_size)
@@ -128,6 +156,23 @@ namespace cli
         return EXIT_SUCCESS;
     }
 
+    package_data_t client::download_packages(){
+    	uint32_t package_size, times, extra;
+        recv_buffer(&package_size, sizeof(uint32_t));
+	    
+	    times = package_size >> 10; // times /= 1024;
+	    extra = (package_size & 1023);
+	    char* local_buffer = (char*)malloc(package_size);
+	    
+	    for (uint32_t i = 0; i < times; i++)
+	        recv_buffer(local_buffer + (i << 10), 1024);
+	    
+	    if (extra)
+	        recv_buffer(local_buffer + (package_size - extra), extra);
+	    
+	    return {local_buffer, package_size};
+	}
+
     package_data_t client::recv_encrypyted()
     {
         char *buffer2download;
@@ -142,12 +187,11 @@ namespace cli
 
         times = packages >> 1;
         buffer2download = (char *) malloc(packages << UNENCRYPTED_PACKAGE_POWER);
-        printf("%d\n", packages);
 
         for (uint64_t i = 0; i < times; i++)
         {
             recv_buffer(local_buffer, ENCRYPTED_PACKAGE_SIZE << 1);
-
+      
             DEC_decrypt(
                 &dec,
                 local_buffer,
@@ -161,7 +205,7 @@ namespace cli
                 local_buffer + ENCRYPTED_PACKAGE_SIZE,
                 ENCRYPTED_PACKAGE_SIZE,
                 buffer2download + (counter++ << UNENCRYPTED_PACKAGE_POWER),
-                UNENCRYPTED_PACKAGE_SIZE
+                0
             );
         }
 

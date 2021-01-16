@@ -6,7 +6,13 @@ CCFLAGS = -std=c11 -c -O0 -g -isystem code
 CXXFLAGS = -std=c++17 -c -O0 -g -isystem code
 LDFLAGS = -l zip -l crypto -l ssl
 
-OBJECT_FILES = build/main.o build/archive.o build/io.o build/client.o build/encryption.o 
+OBJECT_FILES = \
+	build/main.o\
+	build/archive.o\
+	build/io.o\
+	build/client.o\
+	build/encryption.o\
+	build/gclient.o 
 
 all: $(OBJECT_FILES)
 	$(LD) $(LDFLAGS) $^ -o build/client
@@ -25,6 +31,9 @@ build/encryption.o: code/encryption/encryption.c
 
 build/archive.o: code/support/archive.c 
 	$(CC) $(CCFLAGS) $< -o $@
+
+build/gclient.o: code/gclient.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 setup:
 	mkdir -p build
